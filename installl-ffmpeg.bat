@@ -29,24 +29,28 @@ winget source update --accept-source-agreements >nul 2>&1
 where 7z.exe >nul 2>&1
 if %errorLevel% == 0 (
     echo [✓] 7-Zip sudah terinstall.
+    set "SEVENZIP_CMD=7z.exe"
 ) else (
-    echo [→] Menginstall 7-Zip otomatis...
-    winget install --id 7zip.7zip -e --silent --accept-package-agreements --accept-source-agreements
-    if %errorLevel% == 0 (
-        echo [✓] 7-Zip berhasil diinstall.
+    echo [→] 7-Zip belum ada, mendownload 7za.exe standalone dari GitHub...
+    set "SEVENZIP_CMD=%~dp07za.exe"
+    if not exist "%~dp07za.exe" (
+        powershell -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri 'https://github.com/develar/7zip-bin/raw/master/win/x64/7za.exe' -OutFile '%~dp07za.exe'"
+    )
+    if exist "%~dp07za.exe" (
+        echo [✓] 7za.exe siap digunakan.
     ) else (
-        echo [⚠] Gagal install 7-Zip. Coba jalankan manual: winget install 7zip.7zip
+        echo [⚠] Gagal download 7za.exe. Pastikan koneksi internet lancar.
         pause
         exit
     )
 )
 
 :: ====================== DOWNLOAD FFmpeg ======================
-set "FFMPEG_URL=https://www.gyan.dev/ffmpeg/builds/ffmpeg-2026-02-15-git-33b215d155-full_build.7z"
+set "FFMPEG_URL=https://www.gyan.dev/ffmpeg/builds/ffmpeg-git-full.7z"
 set "DOWNLOAD_FILE=%~dp0ffmpeg-full.7z"
 set "EXTRACT_DIR=C:\ffmpeg"
 
-echo [→] Downloading FFmpeg versi yang kamu minta...
+echo [→] Downloading FFmpeg (Terbaru)...
 powershell -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri '%FFMPEG_URL%' -OutFile '%DOWNLOAD_FILE%'"
 
 if not exist "%DOWNLOAD_FILE%" (
@@ -61,11 +65,11 @@ if not exist "%DOWNLOAD_FILE%" (
 echo [→] Extracting ke C:\ffmpeg ...
 if not exist "%EXTRACT_DIR%" mkdir "%EXTRACT_DIR%"
 
-7z x "%DOWNLOAD_FILE%" -o"%EXTRACT_DIR%" -y >nul
+"%SEVENZIP_CMD%" x "%DOWNLOAD_FILE%" -o"%EXTRACT_DIR%" -y >nul
 
 :: Pindah isi folder
 for /d %%i in ("%EXTRACT_DIR%\ffmpeg-*") do (
-    move "%%i\*" "%EXTRACT_DIR%" >nul 2>&1
+    xcopy "%%i\*" "%EXTRACT_DIR%\" /E /Y >nul
     rmdir "%%i" /s /q
 )
 
@@ -77,18 +81,18 @@ setx /M PATH "%PATH%;C:\ffmpeg\bin" >nul
 
 :: ====================== VERIFY ======================
 echo.
-echo [→] Memeriksa versi FFmpeg...
-ffmpeg -version | findstr /C:"N-122760-g33b215d155-20260217" >nul
+echo [→] Memeriksa instalasi FFmpeg...
+ffmpeg -version >nul 2>&1
 if %errorLevel% == 0 (
     color 0a
     echo.
     echo ================================================
     echo     ✅ BERHASIL! FFmpeg sudah terinstall
-    echo     Versi : N-122760-g33b215d155-20260217
+    echo     Versi : Latest Git Build (Gyan.dev)
     echo     Path  : C:\ffmpeg\bin
     echo ================================================
 ) else (
-    echo [⚠] Versi tidak cocok. Tutup semua CMD/PowerShell lalu buka ulang.
+    echo [⚠] Gagal mendeteksi FFmpeg. Tutup semua CMD/PowerShell lalu buka ulang agar PATH ter-refresh.
 )
 
 echo.
