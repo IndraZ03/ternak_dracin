@@ -432,12 +432,12 @@ def _build_ffmpeg_filter(input_file, logo_path, overlay_title, overlay_part, use
     if landscape:
         # Landscape → portrait: scale to fit within 1080x1920, pad with black
         # Scale so the width fits 1080, keep aspect ratio, then pad to 1080x1920
-        scale_part = f"scale={TARGET_W}:-2:force_original_aspect_ratio=decrease"
+        scale_part = f"scale={TARGET_W}:{TARGET_H}:force_original_aspect_ratio=decrease,setsar=1"
         pad_part = f"pad={TARGET_W}:{TARGET_H}:(ow-iw)/2:(oh-ih)/2:black"
         base_vf = f"{scale_part},{pad_part}"
     else:
         # Portrait: scale to 1080xN, then pad to 1080x1920 if needed
-        scale_part = f"scale={TARGET_W}:-2:force_original_aspect_ratio=decrease"
+        scale_part = f"scale={TARGET_W}:{TARGET_H}:force_original_aspect_ratio=decrease,setsar=1"
         pad_part = f"pad={TARGET_W}:{TARGET_H}:(ow-iw)/2:(oh-ih)/2:black"
         base_vf = f"{scale_part},{pad_part}"
 
