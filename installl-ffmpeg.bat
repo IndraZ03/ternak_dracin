@@ -88,6 +88,10 @@ if %errorLevel% == 0 (
     echo     Path  : C:\ffmpeg\bin
     echo ================================================
 ) else (
+
+
+
+    
     echo [⚠] Versi tidak cocok. Tutup semua CMD/PowerShell lalu buka ulang.
 )
 
