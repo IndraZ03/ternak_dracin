@@ -68,7 +68,7 @@ FFMPEG_PATH = _find_bin("ffmpeg")
 YTDLP_PATH = _find_bin("yt-dlp")
 WATERMARK_WIDTH_PCT = 25
 WATERMARK_MARGIN_PCT = 2
-TEXT_FONT = "Arial"
+TEXT_FONT_FILE = "C\\:/Windows/Fonts/arial.ttf"  # Use fontfile= to bypass fontconfig on Windows
 TEXT_SIZE_PCT = 2.5
 TEXT_COLOR = "white"
 TEXT_BORDER_COLOR = "black"
@@ -446,13 +446,13 @@ def _build_ffmpeg_filter(input_file, logo_path, overlay_title, overlay_part, use
 
     # ── Step 2: Drawtext for title and part (relative to final 1080x1920) ──
     dt_title = (
-        f"drawtext=text='{overlay_title}':font='{TEXT_FONT}':"
+        f"drawtext=text='{overlay_title}':fontfile='{TEXT_FONT_FILE}':"
         f"fontsize=h*{TEXT_SIZE_PCT}/100:"
         f"fontcolor={TEXT_COLOR}:borderw={TEXT_BORDER_W}:bordercolor={TEXT_BORDER_COLOR}:"
         f"x=(w-text_w)/2:y=h-text_h*2.5-h*{WATERMARK_MARGIN_PCT*2}/100"
     )
     dt_part = (
-        f"drawtext=text='{overlay_part}':font='{TEXT_FONT}':"
+        f"drawtext=text='{overlay_part}':fontfile='{TEXT_FONT_FILE}':"
         f"fontsize=h*{TEXT_SIZE_PCT}/100:"
         f"fontcolor={TEXT_COLOR}:borderw={TEXT_BORDER_W}:bordercolor={TEXT_BORDER_COLOR}:"
         f"x=(w-text_w)/2:y=h-text_h-h*{WATERMARK_MARGIN_PCT*2}/100"
