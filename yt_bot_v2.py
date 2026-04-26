@@ -510,7 +510,7 @@ def split_and_process_sync(input_file, output_dir, title, logo_path, log_fn=None
                    "-map", "[out]", "-map", "0:a?",
                    "-c:v", "libx264", "-preset", "fast", "-crf", "23",
                    "-c:a", "aac", "-b:a", "128k",
-                   "-shortest", "-movflags", "+faststart", output_file]
+                   "-movflags", "+faststart", output_file]
         else:
             cmd = [FFMPEG_PATH, "-y", "-ss", str(start_sec), "-t", str(SEGMENT_DURATION),
                    "-i", input_file,
