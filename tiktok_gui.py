@@ -617,7 +617,88 @@ def do_post_video(driver, deskripsi, nama_produk_radio, nama_produk_input, log,
             except Exception as e_sv:
                 log(f"⚠ Save sounds gagal: {e_sv}")
 
-    # ── Content Check Lite ── Jika toggle ON, klik agar menjadi OFF
+    # ── L – Schedule ──
+    log("Mengatur schedule...")
+    WebDriverWait(driver, 15).until(EC.presence_of_element_located(
+        (By.XPATH, "//*[contains(text(),'When to post')]")))
+    time.sleep(1)
+
+    sr = wait.until(EC.element_to_be_clickable(
+        (By.XPATH, "//input[@name='postSchedule' and @value='schedule']/ancestor::label")))
+    driver.execute_script("arguments[0].scrollIntoView({block:'center'});", sr)
+    time.sleep(1); driver.execute_script("arguments[0].click();", sr); time.sleep(2)
+
+    # ── Time picker ──
+    target_hour = f"{schedule_dt.hour:02d}"
+    target_min_val = (schedule_dt.minute // 5) * 5
+    target_min = f"{target_min_val:02d}"
+    log(f"Setting time to {target_hour}:{target_min}")
+
+    ti = wait.until(EC.element_to_be_clickable(
+        (By.XPATH, "//div[contains(@class,'TUXTextInputCore')]//input[@readonly and contains(@value,':')]")))
+    driver.execute_script("arguments[0].click();", ti); time.sleep(2)
+
+    # Hour
+    try:
+        hs = WebDriverWait(driver, 5).until(EC.presence_of_element_located(
+            (By.XPATH, f"//div[contains(@class,'tiktok-timepicker-time-picker-container')]//span[contains(@class,'tiktok-timepicker-left') and text()='{target_hour}']")))
+        hs.click(); log(f"✓ Jam {target_hour}")
+    except:
+        try:
+            hc = driver.find_element(By.XPATH, "//div[contains(@class,'tiktok-timepicker-time-picker-container')]//div[contains(@class,'tiktok-timepicker-time-scroll-container')][1]")
+            driver.execute_script("arguments[0].scrollTop=0;", hc); time.sleep(1)
+            hs2 = driver.find_element(By.XPATH, f"//span[contains(@class,'tiktok-timepicker-left') and text()='{target_hour}']")
+            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", hs2); time.sleep(.5)
+            hs2.click(); log(f"✓ Jam {target_hour} (scroll)")
+        except Exception as eh:
+            log(f"⚠ Jam gagal: {eh}")
+    time.sleep(1)
+
+    # Minute
+    try:
+        ms = WebDriverWait(driver, 5).until(EC.presence_of_element_located(
+            (By.XPATH, f"//div[contains(@class,'tiktok-timepicker-time-picker-container')]//span[contains(@class,'tiktok-timepicker-right') and text()='{target_min}']")))
+        ms.click(); log(f"✓ Menit {target_min}")
+    except:
+        try:
+            mcs = driver.find_elements(By.XPATH, "//div[contains(@class,'tiktok-timepicker-time-picker-container')]//div[contains(@class,'tiktok-timepicker-time-scroll-container')]")
+            if len(mcs) >= 2:
+                driver.execute_script("arguments[0].scrollTop=0;", mcs[1]); time.sleep(1)
+            ms2 = driver.find_element(By.XPATH, f"//span[contains(@class,'tiktok-timepicker-right') and text()='{target_min}']")
+            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", ms2); time.sleep(.5)
+            ms2.click(); log(f"✓ Menit {target_min} (scroll)")
+        except Exception as em:
+            log(f"⚠ Menit gagal: {em}")
+    time.sleep(1)
+
+    driver.execute_script("document.body.click();"); time.sleep(1)
+
+    # ── Date picker ──
+    target_day = str(schedule_dt.day)
+    target_date_str = schedule_dt.strftime("%Y-%m-%d")
+    log(f"Setting date to {target_date_str} (day {target_day})")
+
+    di_list = driver.find_elements(By.XPATH, "//div[contains(@class,'TUXTextInputCore')]//input[@readonly]")
+    for di in di_list:
+        v = di.get_attribute("value") or ""
+        if "-" in v and len(v) == 10 and di.is_displayed():
+            driver.execute_script("arguments[0].click();", di); time.sleep(2); break
+
+    # Check if we need to navigate to correct month
+    try:
+        month_title = driver.find_element(By.XPATH, "//div[contains(@class,'calendar-wrapper')]//span[contains(@class,'month-title')]")
+        cal_month = month_title.text.strip()
+        target_month = schedule_dt.strftime("%B")
+        # Navigate forward if needed
+        while cal_month != target_month:
+            next_arrow = driver.find_elements(By.XPATH, "//div[contains(@class,'calendar-wrapper')]//span[contains(@class,'arrow')]")
+            if len(next_arrow) >= 2:
+                next_arrow[1].click(); time.sleep(1)
+            cal_month = driver.find_element(By.XPATH, "//div[contains(@class,'calendar-wrapper')]//span[contains(@class,'month-title')]").text.strip()
+    except:
+        pass
+
+     # ── Content Check Lite ── Jika toggle ON, klik agar menjadi OFF
     try:
         log("Memeriksa Content Check Lite...")
         content_check_clicked = False
@@ -733,87 +814,6 @@ def do_post_video(driver, deskripsi, nama_produk_radio, nama_produk_input, log,
             log("Content Check Lite sudah OFF atau tidak ditemukan.")
     except Exception as e:
         log(f"⚠ Content Check Lite: {e}")
-
-    # ── L – Schedule ──
-    log("Mengatur schedule...")
-    WebDriverWait(driver, 15).until(EC.presence_of_element_located(
-        (By.XPATH, "//*[contains(text(),'When to post')]")))
-    time.sleep(1)
-
-    sr = wait.until(EC.element_to_be_clickable(
-        (By.XPATH, "//input[@name='postSchedule' and @value='schedule']/ancestor::label")))
-    driver.execute_script("arguments[0].scrollIntoView({block:'center'});", sr)
-    time.sleep(1); driver.execute_script("arguments[0].click();", sr); time.sleep(2)
-
-    # ── Time picker ──
-    target_hour = f"{schedule_dt.hour:02d}"
-    target_min_val = (schedule_dt.minute // 5) * 5
-    target_min = f"{target_min_val:02d}"
-    log(f"Setting time to {target_hour}:{target_min}")
-
-    ti = wait.until(EC.element_to_be_clickable(
-        (By.XPATH, "//div[contains(@class,'TUXTextInputCore')]//input[@readonly and contains(@value,':')]")))
-    driver.execute_script("arguments[0].click();", ti); time.sleep(2)
-
-    # Hour
-    try:
-        hs = WebDriverWait(driver, 5).until(EC.presence_of_element_located(
-            (By.XPATH, f"//div[contains(@class,'tiktok-timepicker-time-picker-container')]//span[contains(@class,'tiktok-timepicker-left') and text()='{target_hour}']")))
-        hs.click(); log(f"✓ Jam {target_hour}")
-    except:
-        try:
-            hc = driver.find_element(By.XPATH, "//div[contains(@class,'tiktok-timepicker-time-picker-container')]//div[contains(@class,'tiktok-timepicker-time-scroll-container')][1]")
-            driver.execute_script("arguments[0].scrollTop=0;", hc); time.sleep(1)
-            hs2 = driver.find_element(By.XPATH, f"//span[contains(@class,'tiktok-timepicker-left') and text()='{target_hour}']")
-            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", hs2); time.sleep(.5)
-            hs2.click(); log(f"✓ Jam {target_hour} (scroll)")
-        except Exception as eh:
-            log(f"⚠ Jam gagal: {eh}")
-    time.sleep(1)
-
-    # Minute
-    try:
-        ms = WebDriverWait(driver, 5).until(EC.presence_of_element_located(
-            (By.XPATH, f"//div[contains(@class,'tiktok-timepicker-time-picker-container')]//span[contains(@class,'tiktok-timepicker-right') and text()='{target_min}']")))
-        ms.click(); log(f"✓ Menit {target_min}")
-    except:
-        try:
-            mcs = driver.find_elements(By.XPATH, "//div[contains(@class,'tiktok-timepicker-time-picker-container')]//div[contains(@class,'tiktok-timepicker-time-scroll-container')]")
-            if len(mcs) >= 2:
-                driver.execute_script("arguments[0].scrollTop=0;", mcs[1]); time.sleep(1)
-            ms2 = driver.find_element(By.XPATH, f"//span[contains(@class,'tiktok-timepicker-right') and text()='{target_min}']")
-            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", ms2); time.sleep(.5)
-            ms2.click(); log(f"✓ Menit {target_min} (scroll)")
-        except Exception as em:
-            log(f"⚠ Menit gagal: {em}")
-    time.sleep(1)
-
-    driver.execute_script("document.body.click();"); time.sleep(1)
-
-    # ── Date picker ──
-    target_day = str(schedule_dt.day)
-    target_date_str = schedule_dt.strftime("%Y-%m-%d")
-    log(f"Setting date to {target_date_str} (day {target_day})")
-
-    di_list = driver.find_elements(By.XPATH, "//div[contains(@class,'TUXTextInputCore')]//input[@readonly]")
-    for di in di_list:
-        v = di.get_attribute("value") or ""
-        if "-" in v and len(v) == 10 and di.is_displayed():
-            driver.execute_script("arguments[0].click();", di); time.sleep(2); break
-
-    # Check if we need to navigate to correct month
-    try:
-        month_title = driver.find_element(By.XPATH, "//div[contains(@class,'calendar-wrapper')]//span[contains(@class,'month-title')]")
-        cal_month = month_title.text.strip()
-        target_month = schedule_dt.strftime("%B")
-        # Navigate forward if needed
-        while cal_month != target_month:
-            next_arrow = driver.find_elements(By.XPATH, "//div[contains(@class,'calendar-wrapper')]//span[contains(@class,'arrow')]")
-            if len(next_arrow) >= 2:
-                next_arrow[1].click(); time.sleep(1)
-            cal_month = driver.find_element(By.XPATH, "//div[contains(@class,'calendar-wrapper')]//span[contains(@class,'month-title')]").text.strip()
-    except:
-        pass
 
     try:
         ds = WebDriverWait(driver, 10).until(EC.element_to_be_clickable(

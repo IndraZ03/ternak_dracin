@@ -1087,31 +1087,37 @@ def _force_fresh_tab(drv, log_fn, prefix):
     """Tutup semua tab lama, buka tab baru ke TikTok upload page."""
     log_fn(f"{prefix} 🔄 Membuka tab baru (fresh session)...", "info")
     try:
-        # 1. Buka tab baru (blank)
-        drv.execute_script("window.open('about:blank', '_blank');")
+        # 1. Buka tab baru
+        try:
+            drv.switch_to.new_window('tab')
+        except:
+            drv.execute_script("window.open('about:blank', '_blank');")
+            drv.switch_to.window(drv.window_handles[-1])
         time.sleep(1)
+        
+        new_window = drv.current_window_handle
         windows = drv.window_handles
-        new_window = windows[-1]
         # 2. Tutup semua tab lama
-        for w in windows[:-1]:
-            try:
-                drv.switch_to.window(w)
-                drv.close()
-            except:
-                pass
+        for w in windows:
+            if w != new_window:
+                try:
+                    drv.switch_to.window(w)
+                    drv.close()
+                except:
+                    pass
         # 3. Switch ke tab baru
         drv.switch_to.window(new_window)
         time.sleep(1)
         # 4. Navigate ke upload page (fresh load)
         drv.get(TIKTOK_UPLOAD_URL)
         time.sleep(5)
-        # 5. Verify upload page loaded (cek input[type=file])
+        # 5. Verify upload page loaded (cek tombol upload)
         try:
             from selenium.webdriver.support.ui import WebDriverWait
             from selenium.webdriver.support import expected_conditions as EC
             from selenium.webdriver.common.by import By
             WebDriverWait(drv, 15).until(
-                EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
+                EC.presence_of_element_located((By.XPATH, "//button[@data-e2e='select_video_button' or @aria-label='Select video']")))
             log_fn(f"{prefix} ✅ Tab baru siap", "success")
         except:
             drv.refresh()
@@ -1119,6 +1125,9 @@ def _force_fresh_tab(drv, log_fn, prefix):
             log_fn(f"{prefix} ⚠️ Refresh halaman setelah timeout", "warn")
     except Exception as e:
         log_fn(f"{prefix} ⚠️ Error buat tab baru: {str(e)[:60]}", "warn")
+        err_str = str(e).lower()
+        if "invalid session id" in err_str or "disconnected" in err_str or "no such window" in err_str:
+            raise # lempar error agar batch loop tahu browser mati
 
 
 def _upload_batch(cfg, log_fn, stop_evt, ud_num, video_files):
@@ -1225,6 +1234,9 @@ def _upload_batch(cfg, log_fn, stop_evt, ud_num, video_files):
                         log_fn(f"{prefix} ⚠️ HTTP 403 error, retry {attempt_403+1}/{MAX_403_RETRIES}...", "warn")
                         time.sleep(5)
                         continue
+                    if "invalid session id" in err_str or "disconnected" in err_str or "no such window" in err_str:
+                        log_fn(f"{prefix} ❌ Browser crash/nyangkut, stop batch agar retry nanti...", "error")
+                        return uploaded, total # stop batch so new browser launched next
                     log_fn(f"{prefix} ❌ Error: {e}", "error")
                     break
 
