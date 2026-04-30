@@ -832,65 +832,113 @@ def do_post_video(driver, deskripsi, nama_produk_radio, nama_produk_input, log,
     time.sleep(2)
     log("✓ Schedule diatur!")
 
-    # ── Post / Schedule button ──
-    log("Klik tombol Schedule...")
-    time.sleep(2)
-
-    # Specifically target the button that contains text 'Schedule' (not 'Save Draft')
-    # The Schedule button has: data-e2e="post_video_button", type-primary, text='Schedule'
-    schedule_clicked = False
+    # ── Wait for Upload to Finish ──
+    log("Menunggu proses upload video ke server selesai...")
     try:
-        sch_btn = WebDriverWait(driver, 10).until(EC.element_to_be_clickable(
-            (By.XPATH, "//button[@data-e2e='post_video_button' and .//div[contains(text(),'Schedule')]]")))
-        driver.execute_script("arguments[0].scrollIntoView({block:'center'});", sch_btn)
-        time.sleep(1)
-        driver.execute_script("arguments[0].click();", sch_btn)
-        schedule_clicked = True
-        log("✓ Tombol Schedule diklik")
-    except Exception as e_sch:
-        log(f"⚠ Selector utama gagal: {e_sch}, mencoba fallback...")
-        # Fallback: find by text content 'Schedule' with primary type
+        # Wait up to 5 minutes for the "Uploaded..." success message
+        WebDriverWait(driver, 300).until(
+            EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'info-status') and contains(@class, 'success')]//*[contains(text(), 'ploaded')] | //div[contains(@class, 'success')]//*[contains(text(), 'ploaded')]"))
+        )
+        log("✓ Video selesai di-upload (100%)")
+    except Exception as e:
+        log(f"⚠ Timeout menunggu status 'Uploaded': {e}")
+
+    # ── Post / Schedule button ──
+    log("Tunggu tombol Schedule / Post bisa diklik...")
+    
+    # Tunggu animasi upload beneran beres
+    time.sleep(4)
+
+    def is_button_ready(btn):
+        if not btn.is_displayed(): return False
+        if not btn.is_enabled(): return False
+        aria_disabled = btn.get_attribute("aria-disabled")
+        if aria_disabled == "true": return False
+        disabled_attr = btn.get_attribute("disabled")
+        if disabled_attr == "true": return False
+        return True
+
+    schedule_clicked = False
+    
+    # Tunggu sampai setidaknya ada 1 tombol primary (Post / Schedule) yang siap diklik
+    try:
+        WebDriverWait(driver, 60).until(
+            lambda d: any(is_button_ready(b) for b in d.find_elements(By.XPATH, "//button[@data-e2e='post_video_button'] | //button[contains(@class,'type-primary')]"))
+        )
+    except:
+        log("⚠ Timeout menunggu tombol Post/Schedule ready!")
+
+    # Retries for clicking and verifying it actually worked
+    for attempt in range(3):
         try:
-            sch_btn2 = driver.find_element(
-                By.XPATH, "//button[contains(@class,'type-primary') and .//div[contains(text(),'Schedule')]]")
-            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", sch_btn2)
+            sch_btn = None
+            try:
+                # Prioritaskan tombol text 'Schedule'
+                # Karena kita switch ke schedule, textnya harus 'Schedule'
+                btns = driver.find_elements(By.XPATH, "//button[@data-e2e='post_video_button' and .//div[contains(text(),'Schedule')]]")
+                if not btns:
+                    btns = driver.find_elements(By.XPATH, "//button[contains(@class,'type-primary') and .//div[contains(text(),'Schedule')]]")
+                
+                for b in btns:
+                    if is_button_ready(b):
+                        sch_btn = b; break
+            except: pass
+            
+            if not sch_btn:
+                log(f"⚠ Belum ketemu tombol Schedule yang siap, coba cari asal primary button...")
+                all_btns = driver.find_elements(By.XPATH, "//button[@data-e2e='post_video_button']")
+                for b in all_btns:
+                    if is_button_ready(b):
+                        sch_btn = b; break
+            
+            if not sch_btn:
+                raise Exception("Tombol Schedule tidak ditemukan / tidak clickable")
+                
+            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", sch_btn)
             time.sleep(1)
-            driver.execute_script("arguments[0].click();", sch_btn2)
+            
+            # Coba klik manual dulu (agar event dipicu secara alami), jika gagal baru pakai JS
+            try:
+                sch_btn.click()
+                log("✓ Tombol Schedule diklik (standar)")
+            except:
+                driver.execute_script("arguments[0].click();", sch_btn)
+                log("✓ Tombol Schedule diklik (JS)")
+
             schedule_clicked = True
-            log("✓ Tombol Schedule diklik (fallback)")
-        except:
-            # Last resort: find all buttons, pick the one with text Schedule
-            all_btns = driver.find_elements(By.XPATH, "//button")
-            for b in all_btns:
-                try:
-                    if b.text.strip() == "Schedule" and b.is_displayed():
-                        driver.execute_script("arguments[0].click();", b)
-                        schedule_clicked = True
-                        log("✓ Tombol Schedule diklik (text match)")
-                        break
-                except:
-                    continue
+            
+            # Tunggu popup konfirmasi ATAU navigasi form
+            for _ in range(10):  # 10 detik checking
+                time.sleep(1)
+                
+                # Cek popup
+                confirm_btn = driver.find_elements(By.XPATH, "//div[contains(@class,'modal') or contains(@class,'dialog') or @role='dialog']//button[.//div[text()='Schedule' or text()='Confirm']]")
+                if confirm_btn and confirm_btn[0].is_displayed():
+                    try:
+                        driver.execute_script("arguments[0].click();", confirm_btn[0])
+                        log("✓ Konfirmasi popup diklik")
+                    except: pass
 
-    # Tunggu sebentar agar halaman bereaksi (popup muncul atau langsung terkirim)
-    time.sleep(3)
+                # Cek apakah kita sudah keluar dari form edit / berhasil (contoh: muncul toast success atau URL berubah, atau title form ilang)
+                success_toast = driver.find_elements(By.XPATH, "//div[contains(@class, 'toast') and (contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'uploaded') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'scheduled'))]")
+                if success_toast:
+                    log("✓ Muncul notifikasi sukses")
+                    return # SUCCESS!
+                
+                title_input = driver.find_elements(By.XPATH, "//div[contains(@class, 'notranslate public-DraftEditor-content')]")
+                # Jika input tidak ada lagi atau tidak masuk di DOM, berarti halaman pindah
+                if len(title_input) == 0:
+                    log("✓ Formulir sudah tidak ada (Mungkin selesai)")
+                    return # SUCCESS!
+                    
+            log(f"⚠ Tombol diklik tapi form belum berpindah (attempt {attempt+1}/3).")
+            # Jika masih di sini, loop akan ulang dan klik lagi! 
+        except Exception as e:
+            log(f"⚠ Gagal klik schedule: {e}, retry {attempt+1}/3...")
+            time.sleep(3)
 
-    # Confirm popup — HANYA cari di dalam dialog/modal, agar tidak klik ulang
-    # tombol Schedule yang sama
-    if schedule_clicked:
-        try:
-            # Cek apakah ada dialog/modal konfirmasi
-            confirm_btn = WebDriverWait(driver, 5).until(EC.element_to_be_clickable(
-                (By.XPATH,
-                 "//div[contains(@class,'modal') or contains(@class,'Modal') or contains(@class,'dialog') or contains(@class,'Dialog') or @role='dialog']"
-                 "//button[.//div[text()='Schedule' or text()='Confirm']]")))
-            driver.execute_script("arguments[0].click();", confirm_btn)
-            log("✓ Konfirmasi popup diklik")
-        except:
-            # Tidak ada popup konfirmasi, mungkin langsung terjadwal
-            log("ℹ Tidak ada popup konfirmasi (langsung terjadwal)")
-
-    log("✓ Video berhasil di-schedule!")
-    time.sleep(3)
+    if not schedule_clicked:
+        log("⚠ Gagal menekan tombol Schedule sampai akhir.")
 
 
 # ═══════════════════════════════════════════════════════════════
